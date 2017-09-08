@@ -1,12 +1,34 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+)
+
+type command func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error
+
+var (
+	commands = map[string]command{
+		"!log":      handleLogs,
+		"!logs":     handleLogs,
+		"!mentions": handleMentions,
+		"!test":     handleTests,
+	}
+
+	admins = []string{
+		"105739663192363008",
+		"127292136843509760",
+	}
+
+	guildRatelimits  = map[string]time.Time{}
+	defaultRatelimit = time.Second * 10
 )
 
 func main() {
@@ -24,7 +46,7 @@ func main() {
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
-
+	dg.AddHandler(populateGuilds)
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
@@ -42,6 +64,14 @@ func main() {
 	<-sc
 }
 
+func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
+	guilds := m.Guilds
+	for _, guild := range guilds {
+		guildRatelimits[guild.ID] = time.Now()
+	}
+	fmt.Println("guilds", len(guilds))
+}
+
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -51,13 +81,97 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	// If the message is "ping" reply with "Pong!"
-	if m.Content == "ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
+
+	tokens := strings.Split(m.Content, " ")
+
+	if len(tokens) == 0 {
+		return
 	}
 
-	// If the message is "pong" reply with "Ping!"
-	if m.Content == "pong" {
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
+	cmnd, ok := commands[tokens[0]]
+	if ok {
+		cmnd(s, m, tokens)
 	}
+}
+
+func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+
+	channel, _ := s.Channel(m.ChannelID)
+	guild, err := s.Guild(channel.GuildID)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if isRatelimited(guild.ID, m.Author.ID) {
+		return nil
+	}
+
+	message := fmt.Sprintf("%s %s", m.Author.Mention(), m.Content)
+	s.ChannelMessageSend(m.ChannelID, message)
+	return nil
+}
+
+func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+
+	channel, _ := s.Channel(m.ChannelID)
+	guild, err := s.Guild(channel.GuildID)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if isRatelimited(guild.ID, m.Author.ID) {
+		return nil
+	}
+
+	message := fmt.Sprintf("%s %s", m.Author.Mention(), m.Content)
+	s.ChannelMessageSend(m.ChannelID, message)
+	return nil
+}
+
+func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	if !isAdmin(m.Author.ID) {
+		return errors.New("not a admin")
+	}
+
+	channel, _ := s.Channel(m.ChannelID)
+	guild, err := s.Guild(channel.GuildID)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	message := fmt.Sprintf("%s %s %s", m.Author.Mention(), guild.Name, channel.Name)
+
+	s.ChannelMessageSend(m.ChannelID, message)
+	return nil
+}
+
+func isAdmin(userid string) bool {
+	for _, admin := range admins {
+		if userid == admin {
+			return true
+		}
+	}
+	return false
+}
+
+func isRatelimited(guildid, userid string) bool {
+	// if admin ignore ratelimit
+	if isAdmin(userid) {
+		return false
+	}
+	// if guild not in ratelimits add it and ok it
+	cd, ok := guildRatelimits[guildid]
+	if !ok {
+		guildRatelimits[guildid] = time.Now()
+		return false
+	}
+	// check how much time since last command
+	if time.Since(cd) >= defaultRatelimit {
+		guildRatelimits[guildid] = time.Now()
+		return false
+	}
+
+	return true
 }
