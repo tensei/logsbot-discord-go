@@ -47,6 +47,7 @@ func main() {
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
 	dg.AddHandler(populateGuilds)
+
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
@@ -65,11 +66,10 @@ func main() {
 }
 
 func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
-	guilds := m.Guilds
-	for _, guild := range guilds {
-		guildRatelimits[guild.ID] = time.Now()
+	for _, guild := range m.Guilds {
+		guildRatelimits[guild.ID] = time.Now().UTC()
 	}
-	fmt.Println("guilds", len(guilds))
+	fmt.Println("guilds", len(m.Guilds))
 }
 
 // This function will be called (due to AddHandler above) every time a new
@@ -90,7 +90,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	cmnd, ok := commands[tokens[0]]
 	if ok {
-		cmnd(s, m, tokens)
+		go cmnd(s, m, tokens[1:])
 	}
 }
 
@@ -164,12 +164,12 @@ func isRatelimited(guildid, userid string) bool {
 	// if guild not in ratelimits add it and ok it
 	cd, ok := guildRatelimits[guildid]
 	if !ok {
-		guildRatelimits[guildid] = time.Now()
+		guildRatelimits[guildid] = time.Now().UTC()
 		return false
 	}
 	// check how much time since last command
 	if time.Since(cd) >= defaultRatelimit {
-		guildRatelimits[guildid] = time.Now()
+		guildRatelimits[guildid] = time.Now().UTC()
 		return false
 	}
 
