@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -15,11 +16,16 @@ import (
 type command func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error
 
 var (
-	commands = map[string]command{
-		"!log":      handleLogs,
-		"!logs":     handleLogs,
-		"!mentions": handleMentions,
-		"!test":     handleTests,
+	commands = []struct {
+		Command     string
+		Handler     command
+		Description string
+		Whitelist   []string
+		Blacklist   []string
+	}{
+		{"^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, nil},
+		{"^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, nil},
+		{"^!test$", handleTests, "to test shit", nil, nil},
 	}
 
 	admins = []string{
@@ -88,9 +94,17 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	cmnd, ok := commands[tokens[0]]
-	if ok {
-		go cmnd(s, m, tokens[1:])
+	for _, c := range commands {
+		regex, err := regexp.Compile(c.Command)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		if regex.MatchString(tokens[0]) {
+			go c.Handler(s, m, tokens[1:])
+			break
+		}
 	}
 }
 
