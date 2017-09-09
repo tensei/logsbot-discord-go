@@ -23,9 +23,9 @@ var (
 		Whitelist   []string
 		Blacklist   []string
 	}{
-		{"^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, nil},
-		{"^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, nil},
-		{"^!test$", handleTests, "to test shit", nil, nil},
+		{"(?i)^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, nil},
+		{"(?i)^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, nil},
+		{"(?i)^!test$", handleTests, "to test shit", nil, nil},
 	}
 
 	admins = []string{
@@ -103,47 +103,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		if regex.MatchString(tokens[0]) {
 			go c.Handler(s, m, tokens[1:])
-			break
+			break // should we break here or let it continue? hmmmm
 		}
 	}
 }
 
-func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-
-	channel, _ := s.Channel(m.ChannelID)
-	guild, err := s.Guild(channel.GuildID)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if isRatelimited(guild.ID, m.Author.ID) {
-		return nil
-	}
-
-	message := fmt.Sprintf("%s %s", m.Author.Mention(), m.Content)
-	s.ChannelMessageSend(m.ChannelID, message)
-	return nil
-}
-
-func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-
-	channel, _ := s.Channel(m.ChannelID)
-	guild, err := s.Guild(channel.GuildID)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if isRatelimited(guild.ID, m.Author.ID) {
-		return nil
-	}
-
-	message := fmt.Sprintf("%s %s", m.Author.Mention(), m.Content)
-	s.ChannelMessageSend(m.ChannelID, message)
-	return nil
-}
-
+// for !test
 func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 	if !isAdmin(m.Author.ID) {
 		return errors.New("not a admin")
