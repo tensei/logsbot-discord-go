@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,8 +25,16 @@ var (
 		Whitelist   []string
 		Blacklist   []string
 	}{
+		// overrustlelogs commands
 		{"(?i)^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, nil},
 		{"(?i)^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, nil},
+		// translation commands
+		{"(?i)^!en$", handleEnglish, "translate text to english", nil, nil},
+		{"(?i)^!ja$", handleJapanese, "translate text to japanese", nil, nil},
+		// admin commands
+		{"(?i)^!orl$", handleOwner, "for bot owner only", nil, nil},
+
+		// test commands
 		{"(?i)^!test$", handleTests, "to test shit", nil, nil},
 	}
 
@@ -35,18 +45,21 @@ var (
 
 	guildRatelimits  = map[string]time.Time{}
 	defaultRatelimit = time.Second * 10
+	rlmux            sync.RWMutex
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
-		fmt.Println("Missing Token")
+		log.Println("missing Token")
 		return
 	}
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("error creating Discord session,", err)
+		log.Println("error creating Discord session,", err)
 		return
 	}
 
@@ -54,10 +67,13 @@ func main() {
 	dg.AddHandler(messageCreate)
 	dg.AddHandler(populateGuilds)
 
+	// load settings
+	load()
+
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
-		fmt.Println("error opening connection,", err)
+		log.Println("error opening connection,", err)
 		return
 	}
 
@@ -65,7 +81,7 @@ func main() {
 	defer dg.Close()
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+	log.Println("bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
@@ -75,7 +91,7 @@ func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
 	for _, guild := range m.Guilds {
 		guildRatelimits[guild.ID] = time.Now().UTC()
 	}
-	fmt.Println("guilds", len(m.Guilds))
+	log.Println("guilds", len(m.Guilds))
 }
 
 // This function will be called (due to AddHandler above) every time a new
@@ -102,7 +118,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		if regex.MatchString(tokens[0]) {
-			go c.Handler(s, m, tokens[1:])
+			err = c.Handler(s, m, tokens[1:])
+			if err != nil {
+				log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
+			}
 			break // should we break here or let it continue? hmmmm
 		}
 	}
@@ -140,14 +159,13 @@ func isRatelimited(guildid, userid string) bool {
 	if isAdmin(userid) {
 		return false
 	}
+	// lock for changing time
+	rlmux.Lock()
+	defer rlmux.Unlock()
+
 	// if guild not in ratelimits add it and ok it
 	cd, ok := guildRatelimits[guildid]
-	if !ok {
-		guildRatelimits[guildid] = time.Now().UTC()
-		return false
-	}
-	// check how much time since last command
-	if time.Since(cd) >= defaultRatelimit {
+	if ok && time.Since(cd) >= defaultRatelimit {
 		guildRatelimits[guildid] = time.Now().UTC()
 		return false
 	}
