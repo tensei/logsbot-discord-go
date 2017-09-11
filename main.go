@@ -88,11 +88,17 @@ func main() {
 
 func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
 	s.UpdateStatus(0, fmt.Sprintf("!logs <channel?> <user>"))
+	time.Sleep(time.Second)
 	for _, guild := range m.Guilds {
 		log.Printf("joined guild: %s\n", guild.ID)
 		getSetting(guild.ID)
+		for _, ch := range guild.Channels {
+			rlmux.Lock()
+			guildRatelimits[ch.ID] = time.Now().UTC().Add(-time.Minute)
+			rlmux.Unlock()
+		}
 	}
-	log.Printf("guilds %d\n", len(m.Guilds))
+	log.Printf("guilds %d\nchannels %d\n", len(m.Guilds), len(guildRatelimits))
 }
 
 // This function will be called (due to AddHandler above) every time a new
@@ -176,12 +182,14 @@ func isRatelimited(cuid, userid string, cooldown time.Duration) bool {
 
 	// if guild not in ratelimits add it and ok it
 	cd, ok := guildRatelimits[cuid]
-	if ok && time.Now().UTC().After(cd.Add(time.Second*cooldown)) {
+	if !ok {
 		guildRatelimits[cuid] = time.Now().UTC()
 		return false
 	}
-	if !ok {
+
+	if time.Now().UTC().After(cd.Add(time.Second * cooldown)) {
 		guildRatelimits[cuid] = time.Now().UTC()
+		return false
 	}
 
 	return true

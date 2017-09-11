@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	guildSettings = settings{}
+	guildSettings = make(settings)
 	settingsfile  = os.Getenv("SETTINGS_FILE")
 	mux           sync.RWMutex
 )
@@ -61,6 +61,9 @@ func save() {
 }
 
 func getSetting(guid string) *guildSetting {
+	if guid == "" {
+		return nil
+	}
 	mux.RLock()
 
 	set, ok := guildSettings[guid]

@@ -35,16 +35,18 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			sendOrlResponse(s, channel.ID, tokens[0], url, tokens[1], d, li)
 		}
 	}
-	return nil
+	return errors.New("no command executed")
 }
 
 // for !mentions
 func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 	// todo
-	return nil
+	return errors.New("not implemented")
 }
 
 func logsExist(channel, user string) (bool, int, string, string) {
+	user = strings.TrimSpace(user)
+	channel = strings.TrimSpace(channel)
 	url := fmt.Sprintf("http://ttv.overrustlelogs.net/%s/%s.txt", channel, user)
 	log.Println(url)
 	resp, err := http.Get(url)
