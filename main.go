@@ -22,7 +22,7 @@ var (
 		Command     string
 		Handler     command
 		Description string
-		Whitelist   []string
+		Whitelist   []*string
 		Cooldown    time.Duration //in seconds
 	}{
 		// overrustlelogs commands
@@ -43,7 +43,7 @@ var (
 	}
 	masterChannel = "356704761732530177"
 
-	guildRatelimits = map[string]time.Time{}
+	guildRatelimits = make(map[string]time.Time)
 	rlmux           sync.RWMutex
 )
 
@@ -176,9 +176,12 @@ func isRatelimited(cuid, userid string, cooldown time.Duration) bool {
 
 	// if guild not in ratelimits add it and ok it
 	cd, ok := guildRatelimits[cuid]
-	if ok && time.Since(cd) >= time.Second*cooldown {
+	if ok && time.Now().UTC().After(cd.Add(time.Second*cooldown)) {
 		guildRatelimits[cuid] = time.Now().UTC()
 		return false
+	}
+	if !ok {
+		guildRatelimits[cuid] = time.Now().UTC()
 	}
 
 	return true
