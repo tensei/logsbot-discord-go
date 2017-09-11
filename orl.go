@@ -40,9 +40,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 
 // for !mentions
 func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-
-	message := fmt.Sprintf("%s %s", m.Author.Mention(), m.Content)
-	s.ChannelMessageSend(m.ChannelID, message)
+	// todo
 	return nil
 }
 
