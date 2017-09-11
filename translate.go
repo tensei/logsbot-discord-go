@@ -20,15 +20,9 @@ func handleEnglish(s *discordgo.Session, m *discordgo.MessageCreate, tokens []st
 		return err
 	}
 
-	if isRatelimited(guild.ID, m.Author.ID) {
-		return nil
-	}
-
-	settings, ok := getSetting(guild.ID)
-	if ok {
-		if !settings.Translation {
-			return errors.New("not allowed")
-		}
+	settings := getSetting(guild.ID)
+	if !settings.Translation {
+		return errors.New("not allowed")
 	}
 
 	query := strings.TrimLeft(m.Content, "!en ")
@@ -53,15 +47,9 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 		return err
 	}
 
-	if isRatelimited(guild.ID, m.Author.ID) {
-		return nil
-	}
-
-	settings, ok := getSetting(guild.ID)
-	if ok {
-		if !settings.Translation {
-			return errors.New("not allowed")
-		}
+	settings := getSetting(guild.ID)
+	if !settings.Translation {
+		return errors.New("not allowed")
 	}
 
 	query := strings.TrimLeft(m.Content, "!ja ")

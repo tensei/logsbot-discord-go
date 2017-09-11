@@ -23,19 +23,18 @@ var (
 		Handler     command
 		Description string
 		Whitelist   []string
-		Blacklist   []string
+		Cooldown    time.Duration //in seconds
 	}{
 		// overrustlelogs commands
-		{"(?i)^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, nil},
-		{"(?i)^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, nil},
+		{"(?i)^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, 10},
+		{"(?i)^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, 10},
 		// translation commands
-		{"(?i)^!en$", handleEnglish, "translate text to english", nil, nil},
-		{"(?i)^!ja$", handleJapanese, "translate text to japanese", nil, nil},
+		{"(?i)^!en$", handleEnglish, "translate text to english", nil, 15},
+		{"(?i)^!ja$", handleJapanese, "translate text to japanese", nil, 15},
 		// admin commands
-		{"(?i)^!orl$", handleOwner, "for bot owner only", nil, nil},
-
+		{"(?i)^!orl$", handleOwner, "for bot owner only", nil, 0},
 		// test commands
-		{"(?i)^!test$", handleTests, "to test shit", nil, nil},
+		{"(?i)^!test$", handleTests, "to test shit", nil, 0},
 	}
 
 	admins = []string{
@@ -43,9 +42,8 @@ var (
 		"127292136843509760",
 	}
 
-	guildRatelimits  = map[string]time.Time{}
-	defaultRatelimit = time.Second * 10
-	rlmux            sync.RWMutex
+	guildRatelimits = map[string]time.Time{}
+	rlmux           sync.RWMutex
 )
 
 func main() {
@@ -118,11 +116,20 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		if regex.MatchString(tokens[0]) {
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			// check if i can post again
+			if isRatelimited(m.ChannelID, m.Author.ID, c.Cooldown) {
+				return
+			}
+
 			err = c.Handler(s, m, tokens[1:])
 			if err != nil {
 				log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
 			}
-			break // should we break here or let it continue? hmmmm
+			return // should we return here or let it continue? hmmmm
 		}
 	}
 }
@@ -154,7 +161,7 @@ func isAdmin(userid string) bool {
 	return false
 }
 
-func isRatelimited(guildid, userid string) bool {
+func isRatelimited(cuid, userid string, cooldown time.Duration) bool {
 	// if admin ignore ratelimit
 	if isAdmin(userid) {
 		return false
@@ -164,9 +171,9 @@ func isRatelimited(guildid, userid string) bool {
 	defer rlmux.Unlock()
 
 	// if guild not in ratelimits add it and ok it
-	cd, ok := guildRatelimits[guildid]
-	if ok && time.Since(cd) >= defaultRatelimit {
-		guildRatelimits[guildid] = time.Now().UTC()
+	cd, ok := guildRatelimits[cuid]
+	if ok && time.Since(cd) >= time.Second*cooldown {
+		guildRatelimits[cuid] = time.Now().UTC()
 		return false
 	}
 

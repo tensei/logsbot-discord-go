@@ -58,26 +58,27 @@ func save() {
 	}
 }
 
-func getSetting(guid string) (guildSetting, bool) {
+func getSetting(guid string) *guildSetting {
 	mux.RLock()
 	defer mux.RUnlock()
 
 	set, ok := guildSettings[guid]
 	if !ok {
-		addGuild(guid)
-		return guildSetting{}, false
+		return addGuild(guid)
 	}
-	return *set, true
+	return set
 }
 
-func addGuild(guid string) {
+func addGuild(guid string) *guildSetting {
 	mux.Lock()
 	defer mux.Unlock()
 
-	guildSettings[guid] = &guildSetting{
+	gs := &guildSetting{
 		Guid: guid,
 	}
+	guildSettings[guid] = gs
 	save()
+	return gs
 }
 
 func toggleTranslation(guid string) (bool, error) {
