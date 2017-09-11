@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"sync"
 )
 
@@ -28,11 +28,11 @@ type (
 
 func load() {
 	mux.Lock()
-	defer mux.Unlock()
 
 	fd, err := ioutil.ReadFile(settingsfile)
 	if err != nil {
 		fmt.Printf("failed reading settings file: %v", err)
+		mux.Unlock()
 		save()
 		return
 	}
@@ -41,6 +41,7 @@ func load() {
 	if err != nil {
 		fmt.Printf("failed unmarshal settings file: %v", err)
 	}
+	mux.Unlock()
 }
 
 func save() {
@@ -61,23 +62,26 @@ func save() {
 
 func getSetting(guid string) *guildSetting {
 	mux.RLock()
-	defer mux.RUnlock()
 
 	set, ok := guildSettings[guid]
 	if !ok {
+		mux.RUnlock()
+
 		return addGuild(guid)
 	}
+	mux.RUnlock()
 	return set
 }
 
 func addGuild(guid string) *guildSetting {
 	mux.Lock()
-	defer mux.Unlock()
 
 	gs := &guildSetting{
 		Guid: guid,
 	}
 	guildSettings[guid] = gs
+
+	mux.Unlock()
 	save()
 	return gs
 }

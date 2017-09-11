@@ -122,6 +122,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			// check if i can post again
 			if isRatelimited(m.ChannelID, m.Author.ID, c.Cooldown) {
+				log.Println("rate limited")
 				return
 			}
 
