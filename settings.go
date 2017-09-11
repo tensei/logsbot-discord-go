@@ -66,7 +66,6 @@ func getSetting(guid string) *guildSetting {
 	set, ok := guildSettings[guid]
 	if !ok {
 		mux.RUnlock()
-
 		return addGuild(guid)
 	}
 	mux.RUnlock()
