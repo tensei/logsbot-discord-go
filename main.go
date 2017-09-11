@@ -88,15 +88,10 @@ func main() {
 
 func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
 	for _, guild := range m.Guilds {
-		log.Println("joined guild: ", guild.Name, guild.ID)
+		log.Printf("joined guild: %s\n", guild.ID)
 		getSetting(guild.ID)
-		for _, ch := range guild.Channels {
-			rlmux.Lock()
-			guildRatelimits[ch.ID] = time.Now().UTC()
-			rlmux.Unlock()
-		}
 	}
-	log.Println("guilds", len(m.Guilds))
+	log.Printf("guilds %d\n", len(m.Guilds))
 }
 
 // This function will be called (due to AddHandler above) every time a new
