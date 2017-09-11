@@ -87,6 +87,7 @@ func main() {
 }
 
 func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
+	s.UpdateStatus(0, fmt.Sprintf("!logs <channel?> <user>"))
 	for _, guild := range m.Guilds {
 		log.Printf("joined guild: %s\n", guild.ID)
 		getSetting(guild.ID)
