@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 
 var (
 	guildSettings = settings{}
-	settingsfile  = "settings.json"
+	settingsfile  = os.Getenv("SETTINGS_FILE")
 	mux           sync.RWMutex
 )
 
