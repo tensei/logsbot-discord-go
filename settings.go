@@ -92,8 +92,22 @@ func toggleTranslation(guid string) (bool, error) {
 
 	set, ok := guildSettings[guid]
 	if !ok {
-		return ok, errors.New("")
+		return ok, errors.New("couldn't get settings for " + guid)
 	}
 	set.Translation = !set.Translation
-	return ok, nil
+	return set.Translation, nil
+}
+
+func setChannel(guid, channel string) error {
+	mux.Lock()
+
+	set, ok := guildSettings[guid]
+	if !ok {
+		mux.Unlock()
+		return errors.New("couldn't get settings for " + guid)
+	}
+	set.Channel = channel
+	mux.Unlock()
+	save()
+	return nil
 }

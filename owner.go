@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -13,8 +14,7 @@ func handleOwner(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 		return nil
 	}
 
-	channel, _ := s.Channel(m.ChannelID)
-	guild, err := s.Guild(channel.GuildID)
+	channel, err := s.Channel(m.ChannelID)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -23,16 +23,24 @@ func handleOwner(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 	switch tokens[0] {
 	case "tr":
 		// enable/disable translations for guild
-		ok, err :=  toggleTranslation(guild.ID)
+		ok, err := toggleTranslation(channel.GuildID)
 		if err != nil {
 			return err
 		}
-		s.ChannelMessageSend(channel.ID, fmt.Sprintf("translation set to: %t", ok))
+		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`translation set to: %t`", ok))
 		save()
 	case "leave":
 		// leave guild
-		s.ChannelMessageSend(channel.ID, "bye bye")
-		s.GuildLeave(guild.ID)
+		s.ChannelMessageSend(channel.ID, "`bye bye`")
+		s.GuildLeave(channel.GuildID)
+	case "status":
+		s.UpdateStatus(0, strings.Join(tokens[1:], " "))
+	case "default":
+		// set default channel for x guild
+		err := setChannel(channel.GuildID, tokens[1])
+		if err == nil {
+			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set default channel to: %s`", tokens[1]))
+		}
 	}
 
 	return nil

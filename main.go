@@ -41,6 +41,7 @@ var (
 		"105739663192363008",
 		"127292136843509760",
 	}
+	masterChannel = "356704761732530177"
 
 	guildRatelimits = map[string]time.Time{}
 	rlmux           sync.RWMutex
@@ -125,7 +126,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println("rate limited")
 				return
 			}
-
+			go sendToMasterServer(s, m)
 			err = c.Handler(s, m, tokens[1:])
 			if err != nil {
 				log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
@@ -179,4 +180,27 @@ func isRatelimited(cuid, userid string, cooldown time.Duration) bool {
 	}
 
 	return true
+}
+
+func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Attempt to get the channel from the state.
+	// If there is an error, fall back to the restapi
+	channel, err := s.State.Channel(m.ChannelID)
+	if err != nil {
+		channel, err = s.Channel(m.ChannelID)
+		if err != nil {
+			return
+		}
+	}
+
+	// Attempt to get the guild from the state,
+	// If there is an error, fall back to the restapi.
+	guild, err := s.State.Guild(channel.GuildID)
+	if err != nil {
+		guild, err = s.Guild(channel.GuildID)
+		if err != nil {
+			return
+		}
+	}
+	s.ChannelMessageSend(masterChannel, fmt.Sprintf("```[%s][%s] %s: %s```", guild.Name, channel.Name, m.Author.Username, m.Content))
 }
