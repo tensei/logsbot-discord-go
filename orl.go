@@ -27,12 +27,14 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 		ex, li, url, d := logsExist(setting.Channel, tokens[0])
 		if ex {
 			sendOrlResponse(s, channel.ID, setting.Channel, url, tokens[0], d, li)
+			return nil
 		}
 
 	case 2:
 		ex, li, url, d := logsExist(tokens[0], tokens[1])
 		if ex {
 			sendOrlResponse(s, channel.ID, tokens[0], url, tokens[1], d, li)
+			return nil
 		}
 	}
 	return errors.New("no command executed")

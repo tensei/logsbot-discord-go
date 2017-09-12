@@ -134,7 +134,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println("rate limited")
 				return
 			}
+			// send to master channel for debug/usage info
 			go sendToMasterServer(s, m)
+
 			err = c.Handler(s, m, tokens[1:])
 			if err != nil {
 				log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
@@ -156,9 +158,13 @@ func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 		fmt.Println(err)
 	}
 
-	message := fmt.Sprintf("%s %s %s", m.Author.Mention(), guild.Name, channel.Name)
+	roles := "```"
+	for _, r := range guild.Roles {
+		roles += fmt.Sprintf("name=%s, managed=%t, permissions=%d, id=%s\n", r.Name, r.Managed, r.Permissions, r.ID)
+	}
+	roles += "```"
 
-	s.ChannelMessageSend(m.ChannelID, message)
+	s.ChannelMessageSend(masterChannel, roles)
 	return nil
 }
 
@@ -202,6 +208,7 @@ func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if err != nil {
 		channel, err = s.Channel(m.ChannelID)
 		if err != nil {
+			log.Println(err)
 			return
 		}
 	}
@@ -212,6 +219,7 @@ func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if err != nil {
 		guild, err = s.Guild(channel.GuildID)
 		if err != nil {
+			log.Println(err)
 			return
 		}
 	}
