@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -52,7 +53,8 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 		return errors.New("not allowed")
 	}
 
-	query := strings.TrimLeft(m.Content, "!ja ")
+	query := strings.Join(tokens, " ")
+	query = strings.TrimSpace(query)
 
 	resp, err := translate("ja", query)
 	if err != nil {
@@ -65,13 +67,19 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 }
 
 func translate(t, q string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("https://tensei.moe/api/v1/translate?t=%s&q=%s", t, q))
+	url := fmt.Sprintf("https://tensei.moe/api/v1/translate?q=%s&t=%s", url.QueryEscape(q), t)
+
+	resp, err := http.Get(url)
 	if err != nil || resp.StatusCode == http.StatusNotFound {
 		resp.Body.Close()
 		return "", err
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New("error translating")
+	}
 
 	rc, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
