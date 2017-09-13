@@ -46,24 +46,24 @@ func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 	return errors.New("not implemented")
 }
 
-func logsExist(channel, user string) (bool, int, string, string) {
+func logsExist(channel, user string) (bool, int, string, time.Time) {
 	user = strings.TrimSpace(user)
 	channel = strings.TrimSpace(channel)
 	url := fmt.Sprintf("http://ttv.overrustlelogs.net/%s/%s.txt", channel, user)
 	log.Println(url)
 	resp, err := http.Get(url)
 	if err != nil {
-		return false, 0, "", ""
+		return false, 0, "", time.Now()
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, 0, "", ""
+		return false, 0, "", time.Now()
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, 0, "", ""
+		return false, 0, "", time.Now()
 	}
 	bodystring := string(body)
 
@@ -73,10 +73,10 @@ func logsExist(channel, user string) (bool, int, string, string) {
 		date = time.Now().UTC()
 	}
 
-	return true, lines, url, date.Format("2006-01-02")
+	return true, lines, url, date
 }
 
-func sendOrlResponse(s *discordgo.Session, cid, channel, url, user, date string, lines int) {
+func sendOrlResponse(s *discordgo.Session, cid, channel, url, user string, date time.Time, lines int) {
 	url = strings.TrimSuffix(url, ".txt")
 	message := &discordgo.MessageEmbed{
 		Author: &discordgo.MessageEmbedAuthor{
@@ -84,9 +84,8 @@ func sendOrlResponse(s *discordgo.Session, cid, channel, url, user, date string,
 			Name:    s.State.User.Username,
 			IconURL: s.State.User.AvatarURL(""),
 		},
-		Title:     "Go to logs",
-		URL:       url,
-		Timestamp: date,
+		Title: "Go to logs",
+		URL:   url,
 		Fields: []*discordgo.MessageEmbedField{
 			&discordgo.MessageEmbedField{
 				Name:   "User",
@@ -106,6 +105,9 @@ func sendOrlResponse(s *discordgo.Session, cid, channel, url, user, date string,
 		},
 		// Description: url,
 		Color: 0xff5722,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: date.Format("January 2006"),
+		},
 	}
 	s.ChannelMessageSendEmbed(cid, message)
 }
