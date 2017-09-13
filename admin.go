@@ -33,6 +33,8 @@ func handleAdmins(s *discordgo.Session, m *discordgo.MessageCreate, tokens []str
 			err := setChannel(channel.GuildID, tokens[1])
 			if err == nil {
 				s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set default channel to: %s`", tokens[1]))
+			} else {
+				s.ChannelMessageSend(channel.ID, fmt.Sprintf("`%v`", err))
 			}
 			break
 		}

@@ -27,8 +27,9 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 
 	setting := getSetting(channel.GuildID)
 
-	switch len(tokens) {
-	case 0:
+	ln := len(tokens)
+	switch {
+	case ln == 0:
 		if setting.Channel == "" {
 			return errors.New("channel not set")
 		}
@@ -37,9 +38,12 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			sendOrlResponse(s, channel.ID, setting.Channel, url, m.Author.Username, d, li)
 			return nil
 		}
-	case 1:
+	case ln == 1:
 		if setting.Channel == "" {
 			return errors.New("channel not set")
+		}
+		if !usernameRegex.MatchString(tokens[0]) {
+			return errors.New(fmt.Sprintf("not a valid username: %s", tokens[0]))
 		}
 		ex, li, url, d := logsExist(setting.Channel, tokens[0])
 		if ex {
@@ -47,7 +51,10 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			return nil
 		}
 
-	case 2:
+	case ln >= 2:
+		if !channelRegex.MatchString(tokens[0]) {
+			return errors.New(fmt.Sprintf("not a valid channel name: %s", tokens[1]))
+		}
 		ex, li, url, d := logsExist(tokens[0], tokens[1])
 		if ex {
 			sendOrlResponse(s, channel.ID, tokens[0], url, tokens[1], d, li)

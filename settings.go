@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -95,19 +94,21 @@ func toggleTranslation(guid string) (bool, error) {
 
 	set, ok := guildSettings[guid]
 	if !ok {
-		return ok, errors.New("couldn't get settings for " + guid)
+		return ok, fmt.Errorf("couldn't get settings for %s", guid)
 	}
 	set.Translation = !set.Translation
 	return set.Translation, nil
 }
 
 func setChannel(guid, channel string) error {
+	if !channelRegex.MatchString(channel) {
+		return fmt.Errorf("not a valid channel name: %s", channel)
+	}
 	mux.Lock()
-
 	set, ok := guildSettings[guid]
 	if !ok {
 		mux.Unlock()
-		return errors.New("couldn't get settings for " + guid)
+		return fmt.Errorf("couldn't get settings for %s", guid)
 	}
 	set.Channel = channel
 	mux.Unlock()

@@ -47,6 +47,9 @@ var (
 
 	guildRatelimits = make(map[string]time.Time)
 	rlmux           sync.RWMutex
+
+	usernameRegex = regexp.MustCompile("[a-zA-Z0-9_]+")
+	channelRegex  = regexp.MustCompile("[a-zA-Z0-9_-]+")
 )
 
 func main() {
