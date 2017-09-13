@@ -79,7 +79,12 @@ func logsExist(channel, user string) (bool, int, string, string) {
 func sendOrlResponse(s *discordgo.Session, cid, channel, url, user, date string, lines int) {
 	url = strings.TrimSuffix(url, ".txt")
 	message := &discordgo.MessageEmbed{
-		Title:     "Overrustlelogs",
+		Author: &discordgo.MessageEmbedAuthor{
+			URL:     "https://overrustlelogs.net/",
+			Name:    s.State.User.Username,
+			IconURL: s.State.User.AvatarURL(""),
+		},
+		Title:     "Go to logs",
 		URL:       url,
 		Timestamp: date,
 		Fields: []*discordgo.MessageEmbedField{
