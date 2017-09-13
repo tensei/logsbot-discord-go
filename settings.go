@@ -19,10 +19,11 @@ type (
 	settings map[string]*guildSetting
 
 	guildSetting struct {
-		Guid        string   `json:"guid"`
-		Channel     string   `json:"channel"`
-		Translation bool     `json:"translation"`
-		Ignorelist  []string `json:"ignore_list"`
+		Guid        string   `json:"guid,omitempty"`
+		Channel     string   `json:"channel,omitempty"`
+		Translation bool     `json:"translation,omitempty"`
+		Ignorelist  []string `json:"ignore_list,omitempty"`
+		AdminRole   string   `json:"admin_role,omitempty"`
 	}
 )
 
@@ -112,4 +113,52 @@ func setChannel(guid, channel string) error {
 	mux.Unlock()
 	save()
 	return nil
+}
+
+// add user to ignore list
+func addIgnore(guid, uid string) bool {
+	set := getSetting(guid)
+	for _, u := range set.Ignorelist {
+		if u == uid {
+			return false
+		}
+	}
+	mux.Lock()
+	set.Ignorelist = append(set.Ignorelist, uid)
+	mux.Unlock()
+	go save()
+	return true
+}
+
+// remove user from ignore list
+func removeIgnore(guid, uid string) bool {
+	set := getSetting(guid)
+	for i, u := range set.Ignorelist {
+		if u == uid {
+			mux.Lock()
+			set.Ignorelist = append(set.Ignorelist[:i], set.Ignorelist[i+1:]...)
+			mux.Unlock()
+			go save()
+			return true
+		}
+	}
+	return false
+}
+
+func setAdminRole(guid, roleid string) {
+	set := getSetting(guid)
+	mux.Lock()
+	set.AdminRole = roleid
+	mux.Unlock()
+	go save()
+}
+
+func isIgnored(guid, uid string) bool {
+	set := getSetting(guid)
+	for _, u := range set.Ignorelist {
+		if uid == u {
+			return true
+		}
+	}
+	return false
 }

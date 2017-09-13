@@ -31,15 +31,17 @@ var (
 		// translation commands
 		{"(?i)^!en$", handleEnglish, "translate text to english", nil, 15},
 		{"(?i)^!ja$", handleJapanese, "translate text to japanese", nil, 15},
-		// admin commands
-		{"(?i)^!orl$", handleOwner, "for bot owner only", nil, 0},
+		// bot owner commands
+		{"(?i)^!oorl$", handleOwner, "for bot owner only", nil, 0},
+		// admin role commands
+		{"(?i)^!orl$", handleAdmins, "for bot owner only", nil, 0},
 		// test commands
 		{"(?i)^!test$", handleTests, "to test shit", nil, 0},
 	}
 
-	admins = []string{
-		"105739663192363008",
-		"127292136843509760",
+	owners = []string{
+		"105739663192363008", // tensei
+		// "127292136843509760", // dbc
 	}
 	masterChannel = "356704761732530177"
 
@@ -129,6 +131,19 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println(err)
 				return
 			}
+			channel, err := s.State.Channel(m.ChannelID)
+			if err != nil {
+				channel, err = s.Channel(m.ChannelID)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+			}
+			// check if user is ignored on guild
+			if isIgnored(channel.GuildID, m.Author.ID) {
+				log.Println("ignored", m.Author)
+				return
+			}
 			// check if i can post again
 			if isRatelimited(m.ChannelID, m.Author.ID, c.Cooldown) {
 				log.Println("rate limited")
@@ -148,7 +163,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 // for !test
 func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-	if !isAdmin(m.Author.ID) {
+	if !isOwner(m.Author.ID) {
 		return errors.New("not a admin")
 	}
 
@@ -168,18 +183,56 @@ func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 	return nil
 }
 
-func isAdmin(userid string) bool {
-	for _, admin := range admins {
-		if userid == admin {
+func isOwner(userid string) bool {
+	for _, owner := range owners {
+		if userid == owner {
 			return true
 		}
 	}
 	return false
 }
 
+func isAdmin(s *discordgo.Session, m *discordgo.MessageCreate) bool {
+	channel, err := s.State.Channel(m.ChannelID)
+	if err != nil {
+		channel, err = s.Channel(m.ChannelID)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+	}
+
+	guild, err := s.State.Guild(channel.GuildID)
+	if err != nil {
+		guild, err = s.Guild(channel.GuildID)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+	}
+
+	if m.Author.ID == guild.OwnerID || isOwner(m.Author.ID) {
+		return true
+	}
+
+	setting := getSetting(channel.GuildID)
+	if setting.AdminRole == "" {
+		return false
+	}
+
+	u, _ := s.GuildMember(channel.GuildID, m.Author.ID)
+	for _, role := range u.Roles {
+		if setting.AdminRole == role {
+			return true
+		}
+	}
+
+	return false
+}
+
 func isRatelimited(cuid, userid string, cooldown time.Duration) bool {
 	// if admin ignore ratelimit
-	if isAdmin(userid) {
+	if isOwner(userid) {
 		return false
 	}
 	// lock for changing time

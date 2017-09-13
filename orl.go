@@ -16,10 +16,27 @@ import (
 // for !logs
 func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 
-	channel, _ := s.Channel(m.ChannelID)
+	channel, err := s.State.Channel(m.ChannelID)
+	if err != nil {
+		channel, err = s.Channel(m.ChannelID)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+	}
+
 	setting := getSetting(channel.GuildID)
 
 	switch len(tokens) {
+	case 0:
+		if setting.Channel == "" {
+			return errors.New("channel not set")
+		}
+		ex, li, url, d := logsExist(setting.Channel, m.Author.Username)
+		if ex {
+			sendOrlResponse(s, channel.ID, setting.Channel, url, m.Author.Username, d, li)
+			return nil
+		}
 	case 1:
 		if setting.Channel == "" {
 			return errors.New("channel not set")
@@ -104,7 +121,7 @@ func sendOrlResponse(s *discordgo.Session, cid, channel, url, user string, date 
 			},
 		},
 		// Description: url,
-		Color: 0xff5722,
+		Color: 0xff5722, // orange
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: date.Format("January 2006"),
 		},

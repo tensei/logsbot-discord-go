@@ -10,7 +10,7 @@ import (
 // for !orl
 func handleOwner(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 
-	if !isAdmin(m.Author.ID) || len(tokens) == 0 {
+	if !isOwner(m.Author.ID) || len(tokens) == 0 {
 		return nil
 	}
 
@@ -43,12 +43,6 @@ func handleOwner(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 	case "status":
 		// update bot status
 		s.UpdateStatus(0, strings.Join(tokens[1:], " "))
-	case "default":
-		// set default channel for x guild
-		err := setChannel(channel.GuildID, tokens[1])
-		if err == nil {
-			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set default channel to: %s`", tokens[1]))
-		}
 	}
 
 	return nil
