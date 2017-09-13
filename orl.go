@@ -43,7 +43,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			return errors.New("channel not set")
 		}
 		if !usernameRegex.MatchString(tokens[0]) {
-			return errors.New(fmt.Sprintf("not a valid username: %s", tokens[0]))
+			return fmt.Errorf("not a valid username: %s", tokens[0])
 		}
 		ex, li, url, d := logsExist(setting.Channel, tokens[0])
 		if ex {
@@ -53,7 +53,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 
 	case ln >= 2:
 		if !channelRegex.MatchString(tokens[0]) {
-			return errors.New(fmt.Sprintf("not a valid channel name: %s", tokens[1]))
+			return fmt.Errorf("not a valid channel name: %s", tokens[1])
 		}
 		ex, li, url, d := logsExist(tokens[0], tokens[1])
 		if ex {
@@ -74,7 +74,6 @@ func logsExist(channel, user string) (bool, int, string, time.Time) {
 	user = strings.TrimSpace(user)
 	channel = strings.TrimSpace(channel)
 	url := fmt.Sprintf("http://ttv.overrustlelogs.net/%s/%s.txt", channel, user)
-	log.Println(url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return false, 0, "", time.Now()
