@@ -22,7 +22,7 @@ type (
 		Channel     string   `json:"channel,omitempty"`
 		Translation bool     `json:"translation,omitempty"`
 		Ignorelist  []string `json:"ignore_list,omitempty"`
-		AdminRole   string   `json:"admin_role,omitempty"`
+		AdminRoles  []string `json:"admin_roles,omitempty"`
 	}
 )
 
@@ -76,19 +76,20 @@ func getSetting(guid string) *guildSetting {
 }
 
 func addGuild(guid string) *guildSetting {
-	mux.Lock()
+	defer save()
 
+	mux.Lock()
 	gs := &guildSetting{
 		Guid: guid,
 	}
 	guildSettings[guid] = gs
-
 	mux.Unlock()
-	save()
+
 	return gs
 }
 
 func toggleTranslation(guid string) (bool, error) {
+	defer save()
 	mux.Lock()
 	defer mux.Unlock()
 
@@ -149,7 +150,13 @@ func removeIgnore(guid, uid string) bool {
 func setAdminRole(guid, roleid string) {
 	set := getSetting(guid)
 	mux.Lock()
-	set.AdminRole = roleid
+	for _, a := range set.AdminRoles {
+		if a == roleid {
+			mux.Unlock()
+			return
+		}
+	}
+	set.AdminRoles = append(set.AdminRoles, roleid)
 	mux.Unlock()
 	go save()
 }

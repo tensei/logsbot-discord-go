@@ -23,25 +23,24 @@ var (
 		Handler     command
 		Description string
 		Whitelist   []*string
-		Cooldown    time.Duration //in seconds
 	}{
 		// overrustlelogs commands
-		{"(?i)^!logs?$", handleLogs, "returns a link to the userlogs of x person", nil, 10},
-		{"(?i)^!mentions?$", handleMentions, "returns a link to the mentions of x person", nil, 10},
+		{"(?i)^!logs?$", cooldown(handleLogs, 10), "returns a link to the userlogs of x person", nil},
+		{"(?i)^!mentions?$", cooldown(handleMentions, 10), "returns a link to the mentions of x person", nil},
 		// translation commands
-		{"(?i)^!en$", handleEnglish, "translate text to english", nil, 15},
-		{"(?i)^!ja$", handleJapanese, "translate text to japanese", nil, 15},
+		{"(?i)^!en$", cooldown(handleEnglish, 15), "translate text to english", nil},
+		{"(?i)^!ja$", cooldown(handleJapanese, 15), "translate text to japanese", nil},
 		// bot owner commands
-		{"(?i)^!oorl$", handleOwner, "for bot owner only", nil, 0},
+		{"(?i)^!oorl$", handleOwner, "for bot owner only", nil},
 		// admin role commands
-		{"(?i)^!orl$", handleAdmins, "for bot owner only", nil, 0},
+		{"(?i)^!orl$", handleAdmins, "for bot owner only", nil},
 		// test commands
-		{"(?i)^!test$", handleTests, "to test shit", nil, 0},
+		{"(?i)^!test$", handleTests, "to test shit", nil},
 	}
 
 	owners = []string{
 		"105739663192363008", // tensei
-		// "127292136843509760", // dbc
+		"127292136843509760", // dbc
 	}
 	masterChannel = "356704761732530177"
 
@@ -83,6 +82,8 @@ func main() {
 
 	// Cleanly close down the Discord session.
 	defer dg.Close()
+	// and save last time
+	defer save()
 
 	// Wait here until CTRL-C or other term signal is received.
 	log.Println("bot is now running.  Press CTRL-C to exit.")
@@ -147,18 +148,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println("ignored", m.Author)
 				return
 			}
-			// check if i can post again
-			if isRatelimited(m.ChannelID, m.Author.ID, c.Cooldown) {
-				log.Println("rate limited")
-				return
-			}
-			// send to master channel for debug/usage info
-			go sendToMasterServer(s, m)
 
 			err = c.Handler(s, m, tokens[1:])
 			if err != nil {
 				log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
 			}
+			// send to master channel for debug/usage info
+			go sendToMasterServer(s, m, err)
 			return // should we return here or let it continue? hmmmm
 		}
 	}
@@ -219,45 +215,23 @@ func isAdmin(s *discordgo.Session, m *discordgo.MessageCreate) bool {
 	}
 
 	setting := getSetting(channel.GuildID)
-	if setting.AdminRole == "" {
+	if len(setting.AdminRoles) <= 0 {
 		return false
 	}
 
 	u, _ := s.GuildMember(channel.GuildID, m.Author.ID)
 	for _, role := range u.Roles {
-		if setting.AdminRole == role {
-			return true
+		for _, a := range setting.AdminRoles {
+			if a == role {
+				return true
+			}
 		}
 	}
 
 	return false
 }
 
-func isRatelimited(cuid, userid string, cooldown time.Duration) bool {
-	// if admin ignore ratelimit
-	if isOwner(userid) {
-		return false
-	}
-	// lock for changing time
-	rlmux.Lock()
-	defer rlmux.Unlock()
-
-	// if guild not in ratelimits add it and ok it
-	cd, ok := guildRatelimits[cuid]
-	if !ok {
-		guildRatelimits[cuid] = time.Now().UTC()
-		return false
-	}
-
-	if time.Now().UTC().After(cd.Add(time.Second * cooldown)) {
-		guildRatelimits[cuid] = time.Now().UTC()
-		return false
-	}
-
-	return true
-}
-
-func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate) {
+func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate, cerr error) {
 	// Attempt to get the channel from the state.
 	// If there is an error, fall back to the restapi
 	channel, err := s.State.Channel(m.ChannelID)
@@ -279,5 +253,40 @@ func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 	}
-	s.ChannelMessageSend(masterChannel, fmt.Sprintf("```[%s][%s] %s: %s```", guild.Name, channel.Name, m.Author.Username, m.Content))
+	message := fmt.Sprintf("```[%s][%s] %s: %s", guild.Name, channel.Name, m.Author.Username, m.Content)
+	if cerr != nil {
+		message += fmt.Sprintf("\n%v", cerr)
+	}
+	message += "```"
+	s.ChannelMessageSend(masterChannel, message)
+}
+
+func cooldown(f command, c time.Duration) command {
+	return func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+
+		if isOwner(m.Author.ID) {
+			return f(s, m, tokens)
+		}
+		// lock for changing time
+		rlmux.Lock()
+		defer rlmux.Unlock()
+
+		// if guild not in ratelimits add it and ok it
+		cd, ok := guildRatelimits[m.ChannelID]
+		if !ok {
+			guildRatelimits[m.ChannelID] = time.Now().UTC()
+		}
+
+		if !time.Now().UTC().After(cd.Add(time.Second * c)) {
+			return errors.New("command is on cooldown")
+		}
+
+		err := f(s, m, tokens)
+		if err != nil {
+			return err
+		}
+
+		guildRatelimits[m.ChannelID] = time.Now().UTC()
+		return nil
+	}
 }

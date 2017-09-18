@@ -28,7 +28,6 @@ func handleOwner(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 			return err
 		}
 		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`translation set to: %t`", ok))
-		go save()
 	case "leave":
 		// leave guild
 		guid := ""

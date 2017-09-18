@@ -33,11 +33,12 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 		if setting.Channel == "" {
 			return errors.New("channel not set")
 		}
-		ex, li, url, d := logsExist(setting.Channel, m.Author.Username)
+		ex, li, url, d, err := logsExist(setting.Channel, m.Author.Username)
 		if ex {
 			sendOrlResponse(s, channel.ID, setting.Channel, url, m.Author.Username, d, li)
 			return nil
 		}
+		return err
 	case ln == 1:
 		if setting.Channel == "" {
 			return errors.New("channel not set")
@@ -45,21 +46,22 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 		if !usernameRegex.MatchString(tokens[0]) {
 			return fmt.Errorf("not a valid username: %s", tokens[0])
 		}
-		ex, li, url, d := logsExist(setting.Channel, tokens[0])
+		ex, li, url, d, err := logsExist(setting.Channel, tokens[0])
 		if ex {
 			sendOrlResponse(s, channel.ID, setting.Channel, url, tokens[0], d, li)
 			return nil
 		}
-
+		return err
 	case ln >= 2:
 		if !channelRegex.MatchString(tokens[0]) {
 			return fmt.Errorf("not a valid channel name: %s", tokens[1])
 		}
-		ex, li, url, d := logsExist(tokens[0], tokens[1])
+		ex, li, url, d, err := logsExist(tokens[0], tokens[1])
 		if ex {
 			sendOrlResponse(s, channel.ID, tokens[0], url, tokens[1], d, li)
 			return nil
 		}
+		return err
 	}
 	return errors.New("no command executed")
 }
@@ -70,23 +72,23 @@ func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 	return errors.New("not implemented")
 }
 
-func logsExist(channel, user string) (bool, int, string, time.Time) {
+func logsExist(channel, user string) (bool, int, string, time.Time, error) {
 	user = strings.TrimSpace(user)
 	channel = strings.TrimSpace(channel)
 	url := fmt.Sprintf("http://ttv.overrustlelogs.net/%s/%s.txt", channel, user)
 	resp, err := http.Get(url)
 	if err != nil {
-		return false, 0, "", time.Now()
+		return false, 0, "", time.Now(), err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, 0, "", time.Now()
+		return false, 0, "", time.Now(), fmt.Errorf("server responded with %d", resp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, 0, "", time.Now()
+		return false, 0, "", time.Now(), err
 	}
 	bodystring := string(body)
 
@@ -96,7 +98,7 @@ func logsExist(channel, user string) (bool, int, string, time.Time) {
 		date = time.Now().UTC()
 	}
 
-	return true, lines, url, date
+	return true, lines, url, date, nil
 }
 
 func sendOrlResponse(s *discordgo.Session, cid, channel, url, user string, date time.Time, lines int) {
