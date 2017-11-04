@@ -38,6 +38,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			sendOrlResponse(s, channel.ID, setting.Channel, url, m.Author.Username, d, li)
 			return nil
 		}
+		sendErrorResponse(s, channel.ID, fmt.Errorf("couldn't find user: %s", m.Author.Username))
 		return err
 	case ln == 1:
 		if setting.Channel == "" {
@@ -51,6 +52,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			sendOrlResponse(s, channel.ID, setting.Channel, url, tokens[0], d, li)
 			return nil
 		}
+		sendErrorResponse(s, channel.ID, fmt.Errorf("couldn't find user: %s", tokens[0]))
 		return err
 	case ln >= 2:
 		if !channelRegex.MatchString(tokens[0]) {
@@ -61,6 +63,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			sendOrlResponse(s, channel.ID, tokens[0], url, tokens[1], d, li)
 			return nil
 		}
+		sendErrorResponse(s, channel.ID, fmt.Errorf("couldn't find user: %s", tokens[1]))
 		return err
 	}
 	return errors.New("no command executed")
@@ -75,6 +78,7 @@ func handleMentions(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 func logsExist(channel, user string) (bool, int, string, time.Time, error) {
 	user = strings.TrimSpace(user)
 	channel = strings.TrimSpace(channel)
+
 	url := fmt.Sprintf("http://ttv.overrustlelogs.net/%s/%s.txt", channel, user)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -83,13 +87,14 @@ func logsExist(channel, user string) (bool, int, string, time.Time, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, 0, "", time.Now(), fmt.Errorf("server responded with %d", resp.StatusCode)
+		return false, 0, "", time.Now(), fmt.Errorf("couldn't find user: %s", user)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return false, 0, "", time.Now(), err
 	}
+
 	bodystring := string(body)
 
 	lines := strings.Count(bodystring, "\n")
@@ -135,4 +140,8 @@ func sendOrlResponse(s *discordgo.Session, cid, channel, url, user string, date 
 		},
 	}
 	s.ChannelMessageSendEmbed(cid, message)
+}
+
+func sendErrorResponse(s *discordgo.Session, chid string, err error) {
+	s.ChannelMessageSend(chid, fmt.Sprintf("`%v`", err))
 }
