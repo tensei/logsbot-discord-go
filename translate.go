@@ -22,7 +22,7 @@ func handleEnglish(s *discordgo.Session, m *discordgo.MessageCreate, tokens []st
 	}
 
 	settings := getSetting(guild.ID)
-	if !settings.Translation {
+	if !settings.Translation && !isOwner(m.Author.ID) {
 		return errors.New("not allowed")
 	}
 
@@ -49,7 +49,7 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 	}
 
 	settings := getSetting(guild.ID)
-	if !settings.Translation {
+	if !settings.Translation && !isOwner(m.Author.ID) {
 		return errors.New("not allowed")
 	}
 
