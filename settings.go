@@ -18,11 +18,13 @@ type (
 	settings map[string]*guildSetting
 
 	guildSetting struct {
-		Guid        string   `json:"guid,omitempty"`
-		Channel     string   `json:"channel,omitempty"`
-		Translation bool     `json:"translation,omitempty"`
-		Ignorelist  []string `json:"ignore_list,omitempty"`
-		AdminRoles  []string `json:"admin_roles,omitempty"`
+		Name        string   `json:"name"`
+		Owner       string   `json:"owner"`
+		Guid        string   `json:"guid"`
+		Channel     string   `json:"channel"`
+		Translation bool     `json:"translation"`
+		Ignorelist  []string `json:"ignore_list"`
+		AdminRoles  []string `json:"admin_roles"`
 	}
 )
 

@@ -94,11 +94,15 @@ func main() {
 }
 
 func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
+	defer save()
 	s.UpdateStatus(0, fmt.Sprintf("!logs <channel?> <user>"))
 	time.Sleep(time.Second)
 	for _, guild := range m.Guilds {
 		log.Printf("joined guild: %s\n", guild.ID)
-		getSetting(guild.ID)
+		set := getSetting(guild.ID)
+		set.Name = guild.Name
+		so, _ := s.User(guild.OwnerID)
+		set.Owner = so.String()
 		for _, ch := range guild.Channels {
 			rlmux.Lock()
 			guildRatelimits[ch.ID] = time.Now().UTC().Add(-time.Minute)
