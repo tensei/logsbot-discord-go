@@ -26,7 +26,8 @@ func handleEnglish(s *discordgo.Session, m *discordgo.MessageCreate, tokens []st
 		return errors.New("not allowed")
 	}
 
-	query := strings.TrimLeft(m.Content, "!en ")
+	query := strings.Join(tokens, " ")
+	query = strings.TrimSpace(query)
 
 	resp, err := translate("en", query)
 	if err != nil {
@@ -85,10 +86,10 @@ func translate(t, q string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ns := strings.TrimSpace(string(rc))
 
-	if string(rc) == "" {
+	if ns == "" {
 		return "", errors.New("empty response")
 	}
-
-	return string(rc), nil
+	return ns, nil
 }
