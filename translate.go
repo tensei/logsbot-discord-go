@@ -68,7 +68,7 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 }
 
 func translate(t, q string) (string, error) {
-	url := fmt.Sprintf("https://tensei.moe/api/v1/translate?q=%s&t=%s", url.QueryEscape(q), t)
+	url := fmt.Sprintf("https://tensei.moe/api/v1/translate?q=%s&t=%s", url.QueryEscape(strings.Replace(q, "\n", " ", -1)), t)
 
 	resp, err := http.Get(url)
 	if err != nil || resp.StatusCode == http.StatusNotFound {
