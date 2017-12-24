@@ -66,6 +66,36 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 
 	return err
 }
+func handleTranslate(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+
+	channel, _ := s.Channel(m.ChannelID)
+	guild, err := s.Guild(channel.GuildID)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	settings := getSetting(guild.ID)
+	if !settings.Translation && !isOwner(m.Author.ID) {
+		return errors.New("not allowed")
+	}
+	if tokens[0] == "help" {
+		_, err = s.ChannelMessageSend(channel.ID, "```look here for supported languages\nhttps://cloud.google.com/translate/docs/languages (need ISO-639-1 Code)\n!tr <ISO-639-1 Code> <text>```")
+		return err
+	}
+
+	query := strings.Join(tokens[1:], " ")
+	query = strings.TrimSpace(query)
+
+	resp, err := translate(tokens[0], query)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.ChannelMessageSend(channel.ID, fmt.Sprintf("```%s```", resp))
+
+	return err
+}
 
 func translate(t, q string) (string, error) {
 	url := fmt.Sprintf("https://tensei.moe/api/v1/translate?q=%s&t=%s", url.QueryEscape(strings.Replace(q, "\n", " ", -1)), t)

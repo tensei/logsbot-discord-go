@@ -30,6 +30,7 @@ var (
 		// translation commands
 		{"(?i)^!en$", cooldown(handleEnglish, 15), "translate text to english", nil},
 		{"(?i)^!ja$", cooldown(handleJapanese, 15), "translate text to japanese", nil},
+		{"(?i)^!tr$", cooldown(handleTranslate, 15), "translate text to ?", nil},
 		// bot owner commands
 		{"(?i)^!oorl$", handleOwner, "for bot owner only", nil},
 		// admin role commands
