@@ -156,6 +156,14 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 
 			go func() {
+
+				nm, err := m.ContentWithMoreMentionsReplaced(s)
+				if err != nil {
+					return
+				}
+
+				tokens = strings.Split(nm, " ")
+
 				err = c.Handler(s, m, tokens[1:])
 				if err != nil {
 					log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
