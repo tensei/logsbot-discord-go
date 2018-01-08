@@ -141,8 +141,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			continue
 		}
 
-		tokens := strings.Split(m.Content[len(c.Prefix):], " ")
-
 		channel, err := getChannel(s, m.ChannelID)
 		if err != nil {
 			log.Println(err)
@@ -161,8 +159,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if err != nil {
 				return
 			}
-
-			tokens = strings.Split(nm, " ")
+			tokens := strings.Split(nm[len(c.Prefix):], " ")
 
 			err = c.Handler(s, m, tokens)
 			if err != nil {
