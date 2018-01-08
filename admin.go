@@ -3,75 +3,91 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 var (
-	idRegex = regexp.MustCompile("[0-9]+")
+	idRegex              = regexp.MustCompile("[0-9]+")
+	ErrMissingsArguments = errors.New("`missing arguments! !orl help`")
 )
 
-func handleAdmins(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-	if !isAdmin(s, m) || len(tokens) == 0 {
-		return errors.New("not a admin")
+func handleSetDefault(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	channel, err := getChannel(s, m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
-	channel, err := s.State.Channel(m.ChannelID)
-	if err != nil {
-		channel, err = s.Channel(m.ChannelID)
-		if err != nil {
-			fmt.Println(err)
+	// set default channel for x guild
+	if len(tokens) >= 2 {
+		err := setChannel(channel.GuildID, tokens[1])
+		if err == nil {
+			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set default channel to: %s`", tokens[1]))
+			return nil
+		} else {
+			log.Println(err)
 			return err
 		}
 	}
-
-	switch tokens[0] {
-	case "default", "df":
-		// set default channel for x guild
-		if len(tokens) >= 2 {
-			err := setChannel(channel.GuildID, tokens[1])
-			if err == nil {
-				s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set default channel to: %s`", tokens[1]))
-			} else {
-				s.ChannelMessageSend(channel.ID, fmt.Sprintf("`%v`", err))
-			}
-			break
-		}
-		s.ChannelMessageSend(channel.ID, "`missing channel name`")
-	case "ar", "adminrole":
-		if len(tokens) == 2 {
-			if !idRegex.MatchString(tokens[1]) {
-				s.ChannelMessageSend(channel.ID, "`need channel id`")
-				break
-			}
-			setAdminRole(channel.GuildID, tokens[1])
-			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set adminrole to: %s`", tokens[1]))
-			break
-		}
-		s.ChannelMessageSend(channel.ID, "missing role id")
-	case "ignore":
-		if len(tokens) == 2 {
-			if !idRegex.MatchString(tokens[1]) {
-				s.ChannelMessageSend(channel.ID, "`need user id`")
-				break
-			}
-			addIgnore(channel.GuildID, tokens[1])
-			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`ignoring: %s`", tokens[1]))
-			break
-		}
-		s.ChannelMessageSend(channel.ID, "missing user id")
-	case "unignore":
-		if len(tokens) == 2 {
-			if !idRegex.MatchString(tokens[1]) {
-				s.ChannelMessageSend(channel.ID, "`need user id`")
-				break
-			}
-			removeIgnore(channel.GuildID, tokens[1])
-			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`unignored: %s`", tokens[1]))
-			break
-		}
-		s.ChannelMessageSend(channel.ID, "missing user id")
-	}
 	return nil
+}
+
+func handleSetAdminRole(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	channel, err := getChannel(s, m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if len(tokens) == 2 {
+		if !idRegex.MatchString(tokens[1]) {
+			s.ChannelMessageSend(channel.ID, "`need role id`")
+			return errors.New("invalid role id")
+		}
+		setAdminRole(channel.GuildID, tokens[1])
+		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`set adminrole to: %s`", tokens[1]))
+		return nil
+	}
+	return ErrMissingsArguments
+}
+
+func handleIgnore(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	channel, err := getChannel(s, m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if len(tokens) == 2 {
+		if !idRegex.MatchString(tokens[1]) {
+			s.ChannelMessageSend(channel.ID, "`need user id`")
+			return nil
+		}
+		addIgnore(channel.GuildID, tokens[1])
+		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`ignoring: %s`", tokens[1]))
+		return nil
+	}
+	return ErrMissingsArguments
+}
+
+func handleUnignore(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	channel, err := getChannel(s, m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if len(tokens) == 2 {
+		if !idRegex.MatchString(tokens[1]) {
+			s.ChannelMessageSend(channel.ID, "`invalid user id`")
+			return nil
+		}
+		removeIgnore(channel.GuildID, tokens[1])
+		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`unignored: %s`", tokens[1]))
+		return nil
+	}
+	return ErrMissingsArguments
 }

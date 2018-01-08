@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -15,28 +14,40 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type command func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error
+type commandFunc func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error
+
+type command struct {
+	Prefix      string
+	Handler     commandFunc
+	Description string
+	Usage       string
+}
 
 var (
-	commands = []struct {
-		Command     string
-		Handler     command
-		Description string
-		Whitelist   []*string
-	}{
+	helpMessage string
+	Commands    = []command{
 		// overrustlelogs commands
-		{"(?i)^!logs?$", cooldown(handleLogs, 3), "returns a link to the userlogs of x person", nil},
-		{"(?i)^!mentions?$", dgg(cooldown(handleMentions, 3)), "returns a link to the mentions of x person", nil},
+		{"!logs", cooldown(handleLogs, 3), "returns a link to the userlogs of x person", "channel user (channel is optional)"},
+		// {"!mention", dgg(cooldown(handleMentions, 3)), "returns a link to the mentions of x person", "user"},
 		// translation commands
-		{"(?i)^!en$", cooldown(handleEnglish, 15), "translate text to english", nil},
-		{"(?i)^!ja$", cooldown(handleJapanese, 15), "translate text to japanese", nil},
-		{"(?i)^!tr$", cooldown(handleTranslate, 15), "translate text to ?", nil},
+		{"!en ", cooldown(handleEnglish, 15), "translate text to english", "text"},
+		{"!ja ", cooldown(handleJapanese, 15), "translate text to japanese", "text"},
+		{"!tr ", cooldown(handleTranslate, 15), "translate text to ?", "language-code text\n(https://cloud.google.com/translate/docs/languages)"},
 		// bot owner commands
-		{"(?i)^!oorl$", handleOwner, "for bot owner only", nil},
+		{"!orl translation", isOwner(handleToggleTranslation), "toggle translation features on/off (owner only)", ""},
+		{"!orl leave", isOwner(handleLeaveGuild), "leave guild (owner only)", "guildid (optional)"},
+		{"!orl status", isOwner(handleSetStatus), "change status message (owner only)", "text"},
+		{"!orl stats", isOwner(handleStats), "show bot stats (owner only)", ""},
 		// admin role commands
-		{"(?i)^!orl$", handleAdmins, "for bot owner only", nil},
+		{"!orl default", isAdmin(handleSetDefault), "set default channel used for !logs (admin only)", "twitchchannelname"},
+		{"!orl adminrole", isAdmin(handleSetAdminRole), "set adminrole (admin only)", "roleid"},
+		{"!orl ignore", isAdmin(handleIgnore), "ignore user from using commands (admin only)", "userid"},
+		{"!orl unignore", isAdmin(handleUnignore), "unignore user from using commands (admin only)", "userid"},
+		// bot commands
+		{"!orl help", cooldown(handleHelp, 15), "help", ""},
+		{"!orl get", cooldown(handleGetBot, 15), "return the join link for this bot", ""},
 		// test commands
-		{"(?i)^!test$", handleTests, "to test shit", nil},
+		{"!test", isOwner(handleTests), "to test shit (owner only)", ""},
 	}
 
 	owners = []string{
@@ -75,6 +86,8 @@ func main() {
 	// load settings
 	load()
 
+	// create help message
+	helpMessage = listCommands()
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
@@ -96,7 +109,7 @@ func main() {
 
 func populateGuilds(s *discordgo.Session, m *discordgo.Ready) {
 	defer save()
-	s.UpdateStatus(0, fmt.Sprintf("!logs <channel?> <user>"))
+	s.UpdateStatus(0, fmt.Sprintf("!orl help"))
 	time.Sleep(time.Second)
 	for _, guild := range m.Guilds {
 		log.Printf("joined guild: %s\n", guild.ID)
@@ -123,69 +136,58 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	tokens := strings.Split(m.Content, " ")
-
-	if len(tokens) == 0 {
-		return
-	}
-
-	for _, c := range commands {
-		regex, err := regexp.Compile(c.Command)
-		if err != nil {
-			fmt.Println(err)
+	for _, c := range Commands {
+		if !strings.HasPrefix(strings.ToLower(m.Content), c.Prefix) {
 			continue
 		}
 
-		if regex.MatchString(tokens[0]) {
+		tokens := strings.Split(m.Content[len(c.Prefix):], " ")
+
+		channel, err := getChannel(s, m.ChannelID)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// check if user is ignored on guild
+		if isIgnored(channel.GuildID, m.Author.ID) {
+			log.Println("ignored", m.Author)
+			return
+		}
+
+		go func() {
+
+			nm, err := m.ContentWithMoreMentionsReplaced(s)
 			if err != nil {
-				log.Println(err)
 				return
 			}
-			channel, err := s.State.Channel(m.ChannelID)
+
+			tokens = strings.Split(nm, " ")
+
+			err = c.Handler(s, m, tokens)
 			if err != nil {
-				channel, err = s.Channel(m.ChannelID)
-				if err != nil {
-					log.Println(err)
-					return
-				}
+				log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
 			}
-			// check if user is ignored on guild
-			if isIgnored(channel.GuildID, m.Author.ID) {
-				log.Println("ignored", m.Author)
-				return
-			}
-
-			go func() {
-
-				nm, err := m.ContentWithMoreMentionsReplaced(s)
-				if err != nil {
-					return
-				}
-
-				tokens = strings.Split(nm, " ")
-
-				err = c.Handler(s, m, tokens[1:])
-				if err != nil {
-					log.Printf("%s tried using command %s and failed with error: %v", m.Author.Username, tokens[0], err)
-				}
-			}()
 			// send to master channel for debug/usage info
 			go sendToMasterServer(s, m, err)
-			return // should we return here or let it continue? hmmmm
-		}
+		}()
+		return // should we return here or let it continue? hmmmm
 	}
 }
 
 // for !test
 func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-	if !isOwner(m.Author.ID) {
-		return errors.New("not a admin")
+
+	channel, err := getChannel(s, m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
-	channel, _ := s.Channel(m.ChannelID)
-	guild, err := s.Guild(channel.GuildID)
+	guild, err := getGuild(s, channel.GuildID)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+		return err
 	}
 
 	roles := "```"
@@ -199,31 +201,66 @@ func handleTests(s *discordgo.Session, m *discordgo.MessageCreate, tokens []stri
 }
 
 func sendToMasterServer(s *discordgo.Session, m *discordgo.MessageCreate, cerr error) {
-	// Attempt to get the channel from the state.
-	// If there is an error, fall back to the restapi
-	channel, err := s.State.Channel(m.ChannelID)
+
+	channel, err := getChannel(s, m.ChannelID)
 	if err != nil {
-		channel, err = s.Channel(m.ChannelID)
-		if err != nil {
-			log.Println(err)
-			return
-		}
+		log.Println(err)
+		return
 	}
 
-	// Attempt to get the guild from the state,
-	// If there is an error, fall back to the restapi.
-	guild, err := s.State.Guild(channel.GuildID)
+	guild, err := getGuild(s, channel.GuildID)
 	if err != nil {
-		guild, err = s.Guild(channel.GuildID)
-		if err != nil {
-			log.Println(err)
-			return
-		}
+		log.Println(err)
+		return
 	}
+
 	message := fmt.Sprintf("```[%s][%s] %s: %s", guild.Name, channel.Name, m.Author.Username, m.Content)
 	if cerr != nil {
 		message += fmt.Sprintf("\n%v", cerr)
 	}
 	message += "```"
 	s.ChannelMessageSend(masterChannel, message)
+}
+
+func getChannel(s *discordgo.Session, channelID string) (*discordgo.Channel, error) {
+	channel, err := s.State.Channel(channelID)
+	if err != nil {
+		channel, err = s.Channel(channelID)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+	}
+	return channel, nil
+}
+
+func getGuild(s *discordgo.Session, guildID string) (*discordgo.Guild, error) {
+	guild, err := s.State.Guild(guildID)
+	if err != nil {
+		guild, err = s.Guild(guildID)
+		if err != nil {
+			log.Println(err)
+			return nil, err
+		}
+	}
+	return guild, nil
+}
+
+func handleHelp(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	s.ChannelMessageSend(m.ChannelID, helpMessage)
+	return nil
+}
+func handleGetBot(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	s.ChannelMessageSend(m.ChannelID, "https://discordapp.com/oauth2/authorize?client_id=217062836189265920&scope=bot&permissions=0")
+	return nil
+}
+
+func listCommands() string {
+	message := "```\n"
+	message += "Commands:\n"
+	for _, c := range Commands {
+		message += fmt.Sprintf("%s %s -- Description: %s\n", c.Prefix, c.Usage, c.Description)
+	}
+	message += "```"
+	return message
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func dgg(f command) command {
+func dgg(f commandFunc) commandFunc {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 		channel, err := s.State.Channel(m.ChannelID)
 		if err != nil {
@@ -26,12 +26,8 @@ func dgg(f command) command {
 	}
 }
 
-func cooldown(f command, c time.Duration) command {
+func cooldown(f commandFunc, c time.Duration) commandFunc {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-
-		if isOwner(m.Author.ID) {
-			return f(s, m, tokens)
-		}
 		// lock for changing time
 		rlmux.Lock()
 		defer rlmux.Unlock()
@@ -56,51 +52,53 @@ func cooldown(f command, c time.Duration) command {
 	}
 }
 
-func isOwner(userid string) bool {
-	for _, owner := range owners {
-		if userid == owner {
-			return true
-		}
-	}
-	return false
-}
-
-func isAdmin(s *discordgo.Session, m *discordgo.MessageCreate) bool {
-	channel, err := s.State.Channel(m.ChannelID)
-	if err != nil {
-		channel, err = s.Channel(m.ChannelID)
-		if err != nil {
-			log.Println(err)
-			return false
-		}
-	}
-
-	guild, err := s.State.Guild(channel.GuildID)
-	if err != nil {
-		guild, err = s.Guild(channel.GuildID)
-		if err != nil {
-			log.Println(err)
-			return false
-		}
-	}
-
-	if m.Author.ID == guild.OwnerID || isOwner(m.Author.ID) {
-		return true
-	}
-
-	setting := getSetting(channel.GuildID)
-	if len(setting.AdminRoles) <= 0 {
-		return false
-	}
-
-	u, _ := s.GuildMember(channel.GuildID, m.Author.ID)
-	for _, role := range u.Roles {
-		for _, a := range setting.AdminRoles {
-			if a == role {
-				return true
+func isOwner(c commandFunc) commandFunc {
+	return func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+		for _, owner := range owners {
+			if m.Author.ID == owner {
+				c(s, m, tokens)
+				return nil
 			}
 		}
+		return errors.New("not a owner")
 	}
+}
 
-	return false
+func isAdmin(c commandFunc) commandFunc {
+	return func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+
+		channel, err := getChannel(s, m.ChannelID)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		guild, err := getGuild(s, channel.GuildID)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		if m.Author.ID == guild.OwnerID {
+			c(s, m, tokens)
+			return nil
+		}
+
+		setting := getSetting(channel.GuildID)
+		if len(setting.AdminRoles) <= 0 {
+			return errors.New("not a admin")
+		}
+
+		u, _ := s.GuildMember(channel.GuildID, m.Author.ID)
+		for _, role := range u.Roles {
+			for _, a := range setting.AdminRoles {
+				if a == role {
+					c(s, m, tokens)
+					return nil
+				}
+			}
+		}
+
+		return errors.New("not a admin")
+	}
 }

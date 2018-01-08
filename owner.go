@@ -2,47 +2,53 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-// for !orl
-func handleOwner(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-
-	if !isOwner(m.Author.ID) || len(tokens) == 0 {
-		return nil
-	}
-
-	channel, err := s.Channel(m.ChannelID)
+func handleToggleTranslation(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	channel, err := getChannel(s, m.ChannelID)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 
-	switch tokens[0] {
-	case "tr":
-		// enable/disable translations for guild
-		ok, err := toggleTranslation(channel.GuildID)
-		if err != nil {
-			return err
-		}
-		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`translation set to: %t`", ok))
-	case "leave":
-		// leave guild
-		guid := ""
-		if len(tokens) == 2 { // check if a guild id is provided or not
-			guid = tokens[1]
-		} else {
-			guid = channel.GuildID
-		}
+	// enable/disable translations for guild
+	ok, err := toggleTranslation(channel.GuildID)
+	if err != nil {
+		return err
+	}
+	s.ChannelMessageSend(channel.ID, fmt.Sprintf("`translation set to: %t`", ok))
+	return nil
+}
 
-		s.ChannelMessageSend(channel.ID, fmt.Sprintf("`leaving %s`", guid))
-		s.GuildLeave(guid)
-	case "status":
-		// update bot status
-		s.UpdateStatus(0, strings.Join(tokens[1:], " "))
+func handleLeaveGuild(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	channel, err := getChannel(s, m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
+	// leave guild
+	guid := ""
+	if len(tokens) == 2 { // check if a guild id is provided or not
+		guid = tokens[1]
+	} else {
+		guid = channel.GuildID
+	}
+
+	s.ChannelMessageSend(channel.ID, fmt.Sprintf("`leaving %s`", guid))
+	return s.GuildLeave(guid)
+}
+
+func handleSetStatus(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	// update bot status
+	return s.UpdateStatus(0, strings.Join(tokens[1:], " "))
+}
+
+func handleStats(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
+	// update bot status
 	return nil
 }
