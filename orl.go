@@ -26,7 +26,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 	}
 
 	setting := getSetting(channel.GuildID)
-
+	log.Println(tokens)
 	ln := len(tokens)
 	switch {
 	case ln == 0:
@@ -38,7 +38,7 @@ func handleLogs(s *discordgo.Session, m *discordgo.MessageCreate, tokens []strin
 			sendOrlResponse(s, channel.ID, setting.Channel, url, m.Author.Username, d, li)
 			return nil
 		}
-		sendErrorResponse(s, channel.ID, fmt.Errorf("couldn't find user: %s", m.Author.Username))
+		sendErrorResponse(s, channel.ID, fmt.Errorf("couldn't find user with Author name: %s", m.Author.Username))
 		return err
 	case ln == 1:
 		if setting.Channel == "" {

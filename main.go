@@ -159,7 +159,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if err != nil {
 				return
 			}
-			tokens := strings.Split(nm[len(c.Prefix):], " ")
+			tokens := strings.Split(strings.TrimSpace(nm[len(c.Prefix):]), " ")
 
 			err = c.Handler(s, m, tokens)
 			if err != nil {

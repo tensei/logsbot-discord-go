@@ -33,8 +33,8 @@ func handleLeaveGuild(s *discordgo.Session, m *discordgo.MessageCreate, tokens [
 
 	// leave guild
 	guid := ""
-	if len(tokens) == 2 { // check if a guild id is provided or not
-		guid = tokens[1]
+	if len(tokens) == 1 { // check if a guild id is provided or not
+		guid = tokens[0]
 	} else {
 		guid = channel.GuildID
 	}
@@ -45,7 +45,7 @@ func handleLeaveGuild(s *discordgo.Session, m *discordgo.MessageCreate, tokens [
 
 func handleSetStatus(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 	// update bot status
-	return s.UpdateStatus(0, strings.Join(tokens[1:], " "))
+	return s.UpdateStatus(0, strings.Join(tokens, " "))
 }
 
 func handleStats(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {

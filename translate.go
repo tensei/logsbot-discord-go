@@ -66,6 +66,7 @@ func handleJapanese(s *discordgo.Session, m *discordgo.MessageCreate, tokens []s
 
 	return err
 }
+
 func handleTranslate(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
 
 	channel, _ := s.Channel(m.ChannelID)
