@@ -66,7 +66,12 @@ func isOwner(c commandFunc) commandFunc {
 
 func isAdmin(c commandFunc) commandFunc {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-
+		for _, owner := range owners {
+			if m.Author.ID == owner {
+				c(s, m, tokens)
+				return nil
+			}
+		}
 		channel, err := getChannel(s, m.ChannelID)
 		if err != nil {
 			log.Println(err)

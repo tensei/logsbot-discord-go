@@ -49,6 +49,5 @@ func handleSetStatus(s *discordgo.Session, m *discordgo.MessageCreate, tokens []
 }
 
 func handleStats(s *discordgo.Session, m *discordgo.MessageCreate, tokens []string) error {
-	// update bot status
 	return nil
 }
