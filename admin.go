@@ -62,14 +62,14 @@ func handleIgnore(s *discordgo.Session, m *discordgo.MessageCreate, tokens []str
 	}
 
 	if len(tokens) >= 1 {
-		if !idRegex.MatchString(tokens[0]) {
-			s.ChannelMessageSend(channel.ID, "`need user id`")
-			return nil
-		}
 		if len(m.Mentions) > 0 {
 			addIgnore(channel.GuildID, m.Mentions[0].ID)
 			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`ignoring: %s`", m.Mentions[0].Mention()))
 		} else {
+			if !idRegex.MatchString(tokens[0]) {
+				s.ChannelMessageSend(channel.ID, "`need user id`")
+				return nil
+			}
 			addIgnore(channel.GuildID, tokens[0])
 			s.ChannelMessageSend(channel.ID, fmt.Sprintf("`ignoring: %s`", tokens[0]))
 		}
