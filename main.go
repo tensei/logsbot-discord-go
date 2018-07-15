@@ -30,9 +30,9 @@ var (
 		{"!logs", cooldown(handleLogs, 3), "returns a link to the userlogs of x person", "channel user (channel is optional)"},
 		// {"!mention", dgg(cooldown(handleMentions, 3)), "returns a link to the mentions of x person", "user"},
 		// translation commands
-		{"!en ", cooldown(handleEnglish, 15), "translate text to english", "text"},
-		{"!ja ", cooldown(handleJapanese, 15), "translate text to japanese", "text"},
-		{"!tr ", cooldown(handleTranslate, 15), "translate text to ?", "language-code text\n(https://cloud.google.com/translate/docs/languages)"},
+		{"!en ", cooldown(handleEnglish, 1), "translate text to english", "text"},
+		{"!ja ", cooldown(handleJapanese, 1), "translate text to japanese", "text"},
+		{"!tr ", cooldown(handleTranslate, 1), "translate text to ?", "language-code text\n(https://cloud.google.com/translate/docs/languages)"},
 		// bot owner commands
 		{"!orl translation", isOwner(handleToggleTranslation), "toggle translation features on/off (owner only)", ""},
 		{"!orl leave", isOwner(handleLeaveGuild), "leave guild (owner only)", "guildid (optional)"},
